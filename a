@@ -1,99 +1,20 @@
 import os
-import requests
-import time
-from PyQt5.QtWidgets import QApplication, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget, QProgressBar
-from PyQt5.QtCore import QThread, pyqtSignal
 
-# 指定图片保存路径
-save_dir = 'Y:/jjgirls'
+# 遍历目录中，带Web的文件夹，判断文件夹名 下划线 个数，如果=2，则删除第一个下划线前的所有字符串
 
+path = "V:\渲染中国\资产\室内\_完成"
+for root, dirs, files in os.walk(path):
+    for d in dirs:
+        dir_name = (os.path.join(root, d))
+        if  ("Web" in dir_name) == True:  # 如果地址字符串包含Web字符串
+            # print("原地址:",dir_name)
 
-class DownloadWorker(QThread):
-    # 自定义信号，用于更新进度条
-    progress_updated = pyqtSignal(int)
+            name = os.path.basename(dir_name) # 获得最后一个路径名
+            # print(name)
 
-    def __init__(self, name, page):
-        super().__init__()
-        self.name = name
-        self.page = page
+            if (name.count("_")) == 2: # 计算字符串中出现字符的个数
+                SN = name.split("_")[1] # 截取出了 序列号
+                New_dir_Name = SN +"_Web"
+                New_dir_Path = os.path.dirname(dir_name) +"\\"+ New_dir_Name # 获得上一级目录 + 新地址
+                os.renames(dir_name,New_dir_Path)
 
-    def run(self):
-        # 创建对应名字的文件夹
-        person_directory = os.path.join(save_dir, self.name)
-        os.makedirs(person_directory, exist_ok=True)  # 使用 exist_ok 参数自动创建目录
-        # 构造图片url并下载
-        for i in range(1, 13):
-            img_url = f'https://jjgirls.com/japanese/{self.name}/{self.page}/{self.name}-{i}.jpg'
-            response = requests.get(img_url)
-            if response.status_code == 200:
-                filename = os.path.join(person_directory, f'{self.name}-{i:02d}.jpg')
-                while os.path.exists(filename):
-                    # 文件名已经存在，增加序号
-                    i += 1
-                    filename = os.path.join(person_directory, f'{self.name}-{i:02d}.jpg')
-                with open(filename, 'wb') as f:
-                    f.write(response.content)
-                    print(f'{filename} saved.')
-                    self.progress_updated.emit(i)
-            else:
-                print(f'Failed to download image from {img_url}.')
-                # 如果下载失败，重试一次
-                time.sleep(1)
-                response = requests.get(img_url)
-                if response.status_code == 200:
-                    filename = os.path.join(person_directory, f'{self.name}-{i:02d}.jpg')
-                    while os.path.exists(filename):
-                        # 文件名已经存在，增加序号
-                        i += 1
-                        filename = os.path.join(person_directory, f'{self.name}-{i:02d}.jpg')
-                    with open(filename, 'wb') as f:
-                        f.write(response.content)
-                        print(f'{filename} saved after retrying.')
-                        self.progress_updated.emit(i)
-                else:
-                    print(f'Failed to download image from {img_url} even after retrying.')
-        self.progress_updated.emit(0)  # 下载完成，重置进度条
-
-
-
-class DownloadImagesWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle('jjgirls.com 下载器')  # 窗口标题
-        self.setFixedSize(300, 200)  # 固定大小
-        self.name_label = QLabel("英文名字:")
-        self.name_edit = QLineEdit()
-        self.page_label = QLabel("页:")
-        self.page_edit = QLineEdit()
-        self.download_button = QPushButton("下载")
-        self.download_button.clicked.connect(self.download_images)
-        self.progress_bar = QProgressBar(self)
-        self.progress_bar.setGeometry(0, 0, 300, 25)
-        layout = QVBoxLayout()
-        layout.addWidget(self.name_label)
-        layout.addWidget(self.name_edit)
-        layout.addWidget(self.page_label)
-        layout.addWidget(self.page_edit)
-        layout.addWidget(self.download_button)
-        layout.addWidget(self.progress_bar)
-        self.setLayout(layout)
-
-    def download_images(self):
-        name = self.name_edit.text()
-        page = int(self.page_edit.text())
-        self.download_worker = DownloadWorker(name, page)
-        self.download_worker.progress_updated.connect(self.update_progress_bar)
-        self.download_worker.start()
-
-    def update_progress_bar(self, value):
-        self.progress_bar.setValue(value * 100 // 12)
-        if value == 0:
-            self.progress_bar.setValue(0)
-
-
-
-if __name__ == '__main__':
-    app = QApplication([])
-    window = DownloadImagesWindow()
-    window.show()
-    app.exec_()
